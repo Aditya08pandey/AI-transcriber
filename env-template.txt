@@ -1,11 +1,18 @@
 # Transcribe.ai Environment Variables Template
-# Copy this file to .env.local and fill in your actual values
+# Copy this file to .env and fill in your actual values
 
 # =============================================================================
 # REQUIRED - OpenAI API Key
 # =============================================================================
 # Get your API key from: https://platform.openai.com/api-keys
 OPENAI_API_KEY=sk-your_openai_api_key_here
+
+# =============================================================================
+# REQUIRED - MongoDB Database
+# =============================================================================
+# Get your MongoDB URI from: https://www.mongodb.com/atlas
+# Format: mongodb+srv://username:password@cluster.mongodb.net/database_name
+MONGODB_URI=mongodb+srv://your_username:your_password@your_cluster.mongodb.net/transcribe_ai
 
 # =============================================================================
 # OPTIONAL - External Service Integrations
@@ -61,7 +68,7 @@ DEBUG=false
 # NOTES
 # =============================================================================
 
-# 1. Only OPENAI_API_KEY is required for basic functionality
+# 1. OPENAI_API_KEY and MONGODB_URI are required for basic functionality
 # 2. External service keys are only needed if you want to use export features
 # 3. Never commit this file to version control (it's already in .gitignore)
 # 4. For production, set these as environment variables in your hosting platform 

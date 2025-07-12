@@ -33,11 +33,12 @@ npm install
 
 ### 2. Set Up Environment Variables
 
-Create a `.env.local` file in your project root:
+Create a `.env` file in your project root:
 
 ```env
 # Required
 OPENAI_API_KEY=sk-your_openai_api_key_here
+MONGODB_URI=mongodb+srv://your_username:your_password@your_cluster.mongodb.net/transcribe_ai
 
 # Optional - External Services
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
@@ -50,7 +51,23 @@ SENDGRID_API_KEY=SG.your_sendgrid_api_key
 SENDGRID_FROM_EMAIL=your_verified_email@domain.com
 ```
 
-**Get your OpenAI API key from:** [OpenAI Platform](https://platform.openai.com/api-keys)
+**Get your credentials:**
+
+#### OpenAI API Key:
+1. Go to [OpenAI Platform](https://platform.openai.com/)
+2. Create an account or sign in
+3. Navigate to API Keys section
+4. Create a new API key
+5. Copy the key to your `.env` file
+
+#### MongoDB Database:
+1. Go to [MongoDB Atlas](https://www.mongodb.com/atlas)
+2. Create a free account or sign in
+3. Create a new cluster (free tier is sufficient)
+4. Create a database user with read/write permissions
+5. Get your connection string from "Connect" → "Connect your application"
+6. Replace `<password>` with your database user password
+7. Add the URI to your `.env` file
 
 ### 3. Start Development Server
 
@@ -165,7 +182,7 @@ ai-meeting-agent/
 ### Common Issues
 
 **"OpenAI API key not found"**
-- Check that your `.env.local` file exists in the project root
+- Check that your `.env` file exists in the project root
 - Verify the API key starts with `sk-`
 - Restart your development server after adding the key
 
@@ -182,7 +199,7 @@ ai-meeting-agent/
 ### Environment Variables
 
 **Variables not loading:**
-1. Make sure the file is named exactly `.env.local`
+1. Make sure the file is named exactly `.env`
 2. Check that it's in the project root directory
 3. Restart your development server
 4. Verify no spaces around the `=` sign

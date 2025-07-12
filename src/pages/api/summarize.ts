@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { OpenAI } from 'openai';
-import fs from 'fs';
-import path from 'path';
+import dbConnect from '../../lib/mongodb';
+import Transcript from '../../models/Transcript';
 
 // Check if OpenAI API key is available
 if (!process.env.OPENAI_API_KEY) {
@@ -106,42 +106,37 @@ ${data.actionItems.map((item: any, index: number) => {
    • Importance: ${importance}`;
 }).join('\n\n')}`;
 
-    // Only save to file system in development
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        // Save to transcripts directory
-        const transcriptsDir = './transcripts';
-        if (!fs.existsSync(transcriptsDir)) {
-          fs.mkdirSync(transcriptsDir, { recursive: true });
-        }
+    // Clean and validate action items before saving
+    const cleanedActionItems = data.actionItems.map((item: any) => ({
+      task: item.task || 'No task specified',
+      assignee: item.assignee || 'Unassigned',
+      deadline: item.deadline || null,
+      tone: item.tone || null,
+      importance: item.importance || null
+    }));
 
-        const timestamp = new Date().toISOString();
-        const id = `manual-${Date.now()}`;
-        
-        const transcriptData = {
-          id,
-          timestamp,
-          source,
-          transcript,
-          summary: comprehensiveSummary,
-          actionItems: data.actionItems,
-          createdAt: timestamp
-        };
-
-        const filename = `${id}.json`;
-        const filepath = path.join(transcriptsDir, filename);
-        fs.writeFileSync(filepath, JSON.stringify(transcriptData, null, 2));
-        console.log('Successfully saved transcript to file system');
-      } catch (fileError) {
-        console.error('Error saving to file system:', fileError);
-        // Continue without file system storage
-      }
-    }
+    // Connect to MongoDB
+    await dbConnect();
+    console.log('Connected to MongoDB');
 
     const timestamp = new Date().toISOString();
     const id = `manual-${Date.now()}`;
     
-    console.log('Successfully processed transcript');
+    // Save to MongoDB
+    const transcriptData = {
+      id,
+      timestamp,
+      source,
+      transcript,
+      summary: comprehensiveSummary,
+      actionItems: cleanedActionItems,
+      createdAt: timestamp
+    };
+
+    const newTranscript = new Transcript(transcriptData);
+    await newTranscript.save();
+    console.log('Successfully saved transcript to MongoDB');
+
     return res.status(200).json({
       ...data,
       id,

@@ -19,10 +19,10 @@ async function main() {
   console.log('🚀 Transcribe.ai Environment Setup');
   console.log('=====================================\n');
 
-  // Check if .env.local already exists
-  const envPath = path.join(process.cwd(), '.env.local');
+  // Check if .env already exists
+  const envPath = path.join(process.cwd(), '.env');
   if (fs.existsSync(envPath)) {
-    const overwrite = await question('⚠️  .env.local already exists. Overwrite? (y/N): ');
+    const overwrite = await question('⚠️  .env already exists. Overwrite? (y/N): ');
     if (overwrite.toLowerCase() !== 'y') {
       console.log('Setup cancelled.');
       rl.close();
@@ -48,8 +48,23 @@ async function main() {
   envContent += `# Required - OpenAI API Key\n`;
   envContent += `OPENAI_API_KEY=${openaiKey.trim()}\n\n`;
 
-  // 2. Optional External Services
-  console.log('\n2. External Service Integrations (Optional)');
+  // 2. MongoDB URI (Required)
+  console.log('\n2. MongoDB Database (Required)');
+  console.log('   Get your MongoDB URI from: https://www.mongodb.com/atlas');
+  console.log('   Format: mongodb+srv://username:password@cluster.mongodb.net/database_name');
+  const mongodbUri = await question('   Enter your MongoDB URI: ');
+  
+  if (!mongodbUri.trim()) {
+    console.log('❌ MongoDB URI is required. Setup cancelled.');
+    rl.close();
+    return;
+  }
+
+  envContent += `# Required - MongoDB Database\n`;
+  envContent += `MONGODB_URI=${mongodbUri.trim()}\n\n`;
+
+  // 3. Optional External Services
+  console.log('\n3. External Service Integrations (Optional)');
   console.log('   These are only needed if you want to use export features.\n');
 
   // Slack
@@ -104,8 +119,8 @@ async function main() {
     }
   }
 
-  // 3. Application Configuration
-  console.log('\n3. Application Configuration (Optional)');
+  // 4. Application Configuration
+  console.log('\n4. Application Configuration (Optional)');
   
   const port = await question('   Development server port (default: 3000): ');
   const nodeEnv = await question('   Node environment (default: development): ');
@@ -114,8 +129,8 @@ async function main() {
   envContent += `PORT=${port.trim() || '3000'}\n`;
   envContent += `NODE_ENV=${nodeEnv.trim() || 'development'}\n\n`;
 
-  // 4. Advanced Configuration
-  console.log('\n4. Advanced Configuration (Optional)');
+  // 5. Advanced Configuration
+  console.log('\n5. Advanced Configuration (Optional)');
   
   const useJwt = await question('   Set up JWT secret for authentication? (y/N): ');
   if (useJwt.toLowerCase() === 'y') {
@@ -157,7 +172,7 @@ async function main() {
     console.log('- Environment guide: ENV_SETUP_GUIDE.md');
     
   } catch (error) {
-    console.error('❌ Error creating .env.local file:', error.message);
+    console.error('❌ Error creating .env file:', error.message);
   }
 
   rl.close();

@@ -253,12 +253,6 @@ export default function TranscriptsPage() {
             <p className="text-gray-500 mb-4 max-w-md">
               Upload documents or paste text on the home page to generate your first transcript and summary.
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 max-w-md">
-              <p className="text-sm text-blue-800">
-                <strong>Note:</strong> In production, transcripts are not permanently stored. 
-                Use the download features to save your results locally.
-              </p>
-            </div>
             <Link href="/" className="inline-flex items-center px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition-all">
               Go to Home
             </Link>
