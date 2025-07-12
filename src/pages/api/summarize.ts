@@ -3,6 +3,11 @@ import { OpenAI } from 'openai';
 import fs from 'fs';
 import path from 'path';
 
+// Check if OpenAI API key is available
+if (!process.env.OPENAI_API_KEY) {
+  console.error('OPENAI_API_KEY is not set');
+}
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(
@@ -11,7 +16,13 @@ export default async function handler(
 ) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+  }
+
+  // Check if OpenAI API key is available
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is not set');
+    return res.status(500).json({ error: 'OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.' });
   }
 
   const { transcript, source = 'manual-import' } = req.body;
@@ -20,6 +31,8 @@ export default async function handler(
   }
 
   try {
+    console.log('Processing transcript with OpenAI...');
+    
     // Enhanced prompt for smart context awareness, deadline inference, and ownership detection
     const prompt = `You are an advanced meeting assistant. Given the following transcript, perform the following:
 
@@ -51,6 +64,8 @@ Respond in JSON with:
     ...
   ]
 }`;
+
+    console.log('Sending request to OpenAI...');
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: 'user', content: prompt }],
@@ -58,9 +73,17 @@ Respond in JSON with:
       max_tokens: 800,
       temperature: 0.3,
     });
+    
+    console.log('Received response from OpenAI');
     const content = completion.choices[0].message.content;
-    if (!content) throw new Error('No content from OpenAI.');
+    if (!content) {
+      console.error('No content received from OpenAI');
+      throw new Error('No content from OpenAI.');
+    }
+    
+    console.log('Parsing OpenAI response...');
     const data = JSON.parse(content);
+    console.log('Successfully parsed OpenAI response');
 
     // Create comprehensive summary that includes all generated content
     const comprehensiveSummary = `MEETING SUMMARY
@@ -83,29 +106,42 @@ ${data.actionItems.map((item: any, index: number) => {
    • Importance: ${importance}`;
 }).join('\n\n')}`;
 
-    // Save to transcripts directory
-    const transcriptsDir = './transcripts';
-    if (!fs.existsSync(transcriptsDir)) {
-      fs.mkdirSync(transcriptsDir, { recursive: true });
+    // Only save to file system in development
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        // Save to transcripts directory
+        const transcriptsDir = './transcripts';
+        if (!fs.existsSync(transcriptsDir)) {
+          fs.mkdirSync(transcriptsDir, { recursive: true });
+        }
+
+        const timestamp = new Date().toISOString();
+        const id = `manual-${Date.now()}`;
+        
+        const transcriptData = {
+          id,
+          timestamp,
+          source,
+          transcript,
+          summary: comprehensiveSummary,
+          actionItems: data.actionItems,
+          createdAt: timestamp
+        };
+
+        const filename = `${id}.json`;
+        const filepath = path.join(transcriptsDir, filename);
+        fs.writeFileSync(filepath, JSON.stringify(transcriptData, null, 2));
+        console.log('Successfully saved transcript to file system');
+      } catch (fileError) {
+        console.error('Error saving to file system:', fileError);
+        // Continue without file system storage
+      }
     }
 
     const timestamp = new Date().toISOString();
     const id = `manual-${Date.now()}`;
     
-    const transcriptData = {
-      id,
-      timestamp,
-      source,
-      transcript,
-      summary: comprehensiveSummary,
-      actionItems: data.actionItems,
-      createdAt: timestamp
-    };
-
-    const filename = `${id}.json`;
-    const filepath = path.join(transcriptsDir, filename);
-    fs.writeFileSync(filepath, JSON.stringify(transcriptData, null, 2));
-
+    console.log('Successfully processed transcript');
     return res.status(200).json({
       ...data,
       id,
@@ -113,8 +149,11 @@ ${data.actionItems.map((item: any, index: number) => {
       source
     });
   } catch (err: any) {
-    console.error(err);
-    return res.status(500).json({ error: 'Failed to summarize transcript.' });
+    console.error('Error in summarize API:', err);
+    return res.status(500).json({ 
+      error: 'Failed to summarize transcript.',
+      details: err.message || 'Unknown error'
+    });
   }
 }
 

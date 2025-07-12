@@ -91,6 +91,11 @@ export default function TranscriptsPage() {
         const data = await response.json();
         setTranscripts(data.transcripts);
         if (data.transcripts.length > 0) setSelectedTranscript(data.transcripts[0]);
+        
+        // Show message if no transcripts and we're in production
+        if (data.transcripts.length === 0 && data.message) {
+          console.log(data.message);
+        }
       } else {
         console.error("Failed to fetch transcripts");
       }
@@ -245,7 +250,15 @@ export default function TranscriptsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <h3 className="text-2xl font-semibold text-gray-900 mb-2">No transcripts yet</h3>
-            <p className="text-gray-500 mb-4">Start recording a Google Meet session to generate your first transcript.</p>
+            <p className="text-gray-500 mb-4 max-w-md">
+              Upload documents or paste text on the home page to generate your first transcript and summary.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 max-w-md">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> In production, transcripts are not permanently stored. 
+                Use the download features to save your results locally.
+              </p>
+            </div>
             <Link href="/" className="inline-flex items-center px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition-all">
               Go to Home
             </Link>

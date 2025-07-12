@@ -5,10 +5,19 @@ import path from 'path';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
   try {
+    // In production (Vercel), we don't have persistent file system
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Running in production - no file system available');
+      return res.status(200).json({ 
+        transcripts: [],
+        message: 'Transcript storage not available in production. Use development mode for file-based storage.'
+      });
+    }
+
     const transcriptsDir = './transcripts';
     
     // Check if transcripts directory exists
