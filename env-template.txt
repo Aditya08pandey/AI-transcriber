@@ -1,0 +1,67 @@
+# Transcribe.ai Environment Variables Template
+# Copy this file to .env.local and fill in your actual values
+
+# =============================================================================
+# REQUIRED - OpenAI API Key
+# =============================================================================
+# Get your API key from: https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-your_openai_api_key_here
+
+# =============================================================================
+# OPTIONAL - External Service Integrations
+# =============================================================================
+
+# Slack Integration
+# Create a webhook at: https://api.slack.com/apps
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# Notion Integration
+# Get token from: https://www.notion.so/my-integrations
+NOTION_TOKEN=secret_your_notion_token_here
+NOTION_DATABASE_ID=your_database_id_here
+
+# Trello Integration
+# Get API key and token from: https://trello.com/app-key
+TRELLO_API_KEY=your_trello_api_key
+TRELLO_TOKEN=your_trello_token
+TRELLO_BOARD_ID=your_board_id
+
+# SendGrid Email Integration
+# Sign up at: https://sendgrid.com/
+SENDGRID_API_KEY=SG.your_sendgrid_api_key
+SENDGRID_FROM_EMAIL=your_verified_email@domain.com
+
+# =============================================================================
+# OPTIONAL - Application Configuration
+# =============================================================================
+
+# Development server port
+PORT=3000
+
+# Environment
+NODE_ENV=development
+
+# =============================================================================
+# OPTIONAL - Advanced Configuration
+# =============================================================================
+
+# JWT secret for user authentication (if implementing auth)
+JWT_SECRET=your_random_secret_string_here
+
+# CORS origins (comma-separated)
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# Log level
+LOG_LEVEL=info
+
+# Debug mode
+DEBUG=false
+
+# =============================================================================
+# NOTES
+# =============================================================================
+
+# 1. Only OPENAI_API_KEY is required for basic functionality
+# 2. External service keys are only needed if you want to use export features
+# 3. Never commit this file to version control (it's already in .gitignore)
+# 4. For production, set these as environment variables in your hosting platform 

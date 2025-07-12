@@ -1,0 +1,120 @@
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { OpenAI } from 'openai';
+import fs from 'fs';
+import path from 'path';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+
+  const { transcript, source = 'manual-import' } = req.body;
+  if (!transcript || typeof transcript !== 'string') {
+    return res.status(400).json({ error: 'Transcript text is required.' });
+  }
+
+  try {
+    // Enhanced prompt for smart context awareness, deadline inference, and ownership detection
+    const prompt = `You are an advanced meeting assistant. Given the following transcript, perform the following:
+
+1. Provide a concise, human-like meeting summary. Do NOT include any speaker names or tags; just give a general summary of the whole meeting.
+2. Extract action items. For each action item, include:
+   - task: A clear description of the action.
+   - assignee: The person responsible (infer from context, e.g., "Let's have John lead this").
+   - deadline: The deadline (infer from context, e.g., "by Friday", "before next call").
+   - tone: The tone of the request (e.g., urgent, casual, critical, optional, etc.).
+   - importance: Rate the importance (high, medium, low) based on context and language cues.
+3. If any of the above cannot be determined, set the value to null.
+
+Transcript:
+"""
+${transcript}
+"""
+
+Respond in JSON with:
+{
+  summary: "...",
+  actionItems: [
+    {
+      task: "...",
+      assignee: "...",
+      deadline: "...",
+      tone: "...",
+      importance: "..."
+    },
+    ...
+  ]
+}`;
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: "json_object" },
+      max_tokens: 800,
+      temperature: 0.3,
+    });
+    const content = completion.choices[0].message.content;
+    if (!content) throw new Error('No content from OpenAI.');
+    const data = JSON.parse(content);
+
+    // Create comprehensive summary that includes all generated content
+    const comprehensiveSummary = `MEETING SUMMARY
+
+${data.summary}
+
+ACTION ITEMS
+
+${data.actionItems.map((item: any, index: number) => {
+  const task = item.task || 'No task specified';
+  const assignee = item.assignee || 'Unassigned';
+  const deadline = item.deadline || 'No deadline specified';
+  const tone = item.tone || 'Not specified';
+  const importance = item.importance || 'Not specified';
+  
+  return `${index + 1}. ${task}
+   • Assignee: ${assignee}
+   • Deadline: ${deadline}
+   • Tone: ${tone}
+   • Importance: ${importance}`;
+}).join('\n\n')}`;
+
+    // Save to transcripts directory
+    const transcriptsDir = './transcripts';
+    if (!fs.existsSync(transcriptsDir)) {
+      fs.mkdirSync(transcriptsDir, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString();
+    const id = `manual-${Date.now()}`;
+    
+    const transcriptData = {
+      id,
+      timestamp,
+      source,
+      transcript,
+      summary: comprehensiveSummary,
+      actionItems: data.actionItems,
+      createdAt: timestamp
+    };
+
+    const filename = `${id}.json`;
+    const filepath = path.join(transcriptsDir, filename);
+    fs.writeFileSync(filepath, JSON.stringify(transcriptData, null, 2));
+
+    return res.status(200).json({
+      ...data,
+      id,
+      timestamp,
+      source
+    });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to summarize transcript.' });
+  }
+}
+
