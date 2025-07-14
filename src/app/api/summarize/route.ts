@@ -1,7 +1,8 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
-import dbConnect from '../../lib/mongodb';
-import Transcript from '../../models/Transcript';
+import dbConnect from '../../../lib/mongodb';
+import Transcript from '../../../models/Transcript';
+import jwt from 'jsonwebtoken';
 
 // Check if OpenAI API key is available
 if (!process.env.OPENAI_API_KEY) {
@@ -10,27 +11,50 @@ if (!process.env.OPENAI_API_KEY) {
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
-    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
-  }
+const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
 
+function getUserFromRequest(request: NextRequest) {
+  const auth = request.headers.get('authorization');
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.replace('Bearer ', '');
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string, email: string };
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  // Debug logging
+  console.log('=== API Debug Info ===');
+  console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? 'Set' : 'Not set');
+  console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+  console.log('Node Environment:', process.env.NODE_ENV);
+  console.log('Request Method:', request.method);
+  
   // Check if OpenAI API key is available
   if (!process.env.OPENAI_API_KEY) {
     console.error('OPENAI_API_KEY is not set');
-    return res.status(500).json({ error: 'OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.' });
-  }
-
-  const { transcript, source = 'manual-import' } = req.body;
-  if (!transcript || typeof transcript !== 'string') {
-    return res.status(400).json({ error: 'Transcript text is required.' });
+    return NextResponse.json(
+      { error: 'OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.' },
+      { status: 500 }
+    );
   }
 
   try {
+    const { transcript, source = 'manual-import' } = await request.json();
+    const user = getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!transcript || typeof transcript !== 'string') {
+      return NextResponse.json(
+        { error: 'Transcript text is required.' },
+        { status: 400 }
+      );
+    }
+
     console.log('Processing transcript with OpenAI...');
     
     // Enhanced prompt for smart context awareness, deadline inference, and ownership detection
@@ -85,26 +109,8 @@ Respond in JSON with:
     const data = JSON.parse(content);
     console.log('Successfully parsed OpenAI response');
 
-    // Create comprehensive summary that includes all generated content
-    const comprehensiveSummary = `MEETING SUMMARY
-
-${data.summary}
-
-ACTION ITEMS
-
-${data.actionItems.map((item: any, index: number) => {
-  const task = item.task || 'No task specified';
-  const assignee = item.assignee || 'Unassigned';
-  const deadline = item.deadline || 'No deadline specified';
-  const tone = item.tone || 'Not specified';
-  const importance = item.importance || 'Not specified';
-  
-  return `${index + 1}. ${task}
-   • Assignee: ${assignee}
-   • Deadline: ${deadline}
-   • Tone: ${tone}
-   • Importance: ${importance}`;
-}).join('\n\n')}`;
+    // Only use the meeting summary for summary and fullSummaryText
+    const meetingSummary = data.summary;
 
     // Clean and validate action items before saving
     const cleanedActionItems = data.actionItems.map((item: any) => ({
@@ -116,8 +122,16 @@ ${data.actionItems.map((item: any, index: number) => {
     }));
 
     // Connect to MongoDB
-    await dbConnect();
-    console.log('Connected to MongoDB');
+    try {
+      await dbConnect();
+      console.log('Connected to MongoDB');
+    } catch (dbError) {
+      console.error('MongoDB connection error:', dbError);
+      return NextResponse.json(
+        { error: 'Database connection failed', details: dbError.message },
+        { status: 500 }
+      );
+    }
 
     const timestamp = new Date().toISOString();
     const id = `manual-${Date.now()}`;
@@ -128,27 +142,33 @@ ${data.actionItems.map((item: any, index: number) => {
       timestamp,
       source,
       transcript,
-      summary: comprehensiveSummary,
+      summary: meetingSummary,
       actionItems: cleanedActionItems,
-      createdAt: timestamp
+      createdAt: timestamp,
+      user: user.userId,
+      userEmail: user.email,
+      fullSummaryText: meetingSummary,
     };
 
     const newTranscript = new Transcript(transcriptData);
     await newTranscript.save();
     console.log('Successfully saved transcript to MongoDB');
 
-    return res.status(200).json({
+    return NextResponse.json({
       ...data,
       id,
       timestamp,
-      source
+      source,
+      summary: meetingSummary // Only return the meeting summary
     });
   } catch (err: any) {
     console.error('Error in summarize API:', err);
-    return res.status(500).json({ 
-      error: 'Failed to summarize transcript.',
-      details: err.message || 'Unknown error'
-    });
+    return NextResponse.json(
+      { 
+        error: 'Failed to summarize transcript.',
+        details: err.message || 'Unknown error'
+      },
+      { status: 500 }
+    );
   }
-}
-
+} 

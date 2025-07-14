@@ -6,6 +6,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Logo from "../../components/Logo";
 import jsPDF from "jspdf";
+import { useAuth } from "../../contexts/AuthContext";
+import ProtectedRoute from "../../components/ProtectedRoute";
 
 interface MeetingData {
   id: string;
@@ -75,32 +77,38 @@ const sourceIcons: Record<string, JSX.Element> = {
 };
 
 export default function TranscriptsPage() {
+  const { user, logout, getToken } = useAuth();
   const [transcripts, setTranscripts] = useState<MeetingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTranscript, setSelectedTranscript] = useState<MeetingData | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTranscripts();
-  }, []);
+    if (user?.email) {
+      fetchTranscripts();
+    }
+  }, [user?.email]);
 
   const fetchTranscripts = async () => {
     try {
-      const response = await fetch("/api/transcripts");
+      const token = getToken();
+      const response = await fetch('/api/transcripts', {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setTranscripts(data.transcripts);
         if (data.transcripts.length > 0) setSelectedTranscript(data.transcripts[0]);
-        
-        // Show message if no transcripts and we're in production
         if (data.transcripts.length === 0 && data.message) {
           console.log(data.message);
         }
       } else {
-        console.error("Failed to fetch transcripts");
+        console.error('Failed to fetch transcripts');
       }
     } catch (error) {
-      console.error("Error fetching transcripts:", error);
+      console.error('Error fetching transcripts:', error);
     } finally {
       setLoading(false);
     }
@@ -220,7 +228,8 @@ export default function TranscriptsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
@@ -230,10 +239,19 @@ export default function TranscriptsPage() {
           <div className="flex-1 flex justify-center">
             <span className="text-xl font-bold text-gray-900 tracking-tight">Meeting Transcripts</span>
           </div>
-          <div className="flex items-center">
-            <Link href="/" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition-all">
+          <div className="flex items-center space-x-4">
+            <Link href="/dashboard" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition-all">
               Home
             </Link>
+            <button
+              onClick={logout}
+              className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg font-semibold shadow hover:bg-red-700 transition-all"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logout
+            </button>
           </div>
         </div>
       </header>
@@ -253,8 +271,8 @@ export default function TranscriptsPage() {
             <p className="text-gray-500 mb-4 max-w-md">
               Upload documents or paste text on the home page to generate your first transcript and summary.
             </p>
-            <Link href="/" className="inline-flex items-center px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition-all">
-              Go to Home
+            <Link href="/dashboard" className="inline-flex items-center px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition-all">
+              Go to Dashboard
             </Link>
           </div>
         ) : (
@@ -282,7 +300,9 @@ export default function TranscriptsPage() {
                           <span className="ml-2 text-xs text-gray-400">{formatDate(transcript.timestamp)}</span>
                         </div>
                         <span className="block text-xs text-gray-500 truncate mt-1">
-                          {transcript.summary.slice(0, 60)}{transcript.summary.length > 60 ? "..." : ""}
+                          {(transcript.summary && transcript.summary.length > 0)
+                            ? transcript.summary.slice(0, 60) + (transcript.summary.length > 60 ? "..." : "")
+                            : "No summary available."}
                         </span>
                       </div>
                     </button>
@@ -419,7 +439,9 @@ export default function TranscriptsPage() {
                   <div className="mb-8">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Complete Summary & Action Items</h3>
                     <div className="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-4 text-gray-800 shadow-inner animate-fade-in-slide-up max-h-[40vh] overflow-y-auto whitespace-pre-wrap">
-                      {selectedTranscript.summary}
+                      {selectedTranscript.summary && selectedTranscript.summary.length > 0
+                        ? selectedTranscript.summary
+                        : "No summary available for this transcript."}
                     </div>
                   </div>
                   <div>
@@ -466,6 +488,7 @@ export default function TranscriptsPage() {
           animation: fade-in-slide-up 0.8s cubic-bezier(0.4,0,0.2,1) both;
         }
       `}</style>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 } 

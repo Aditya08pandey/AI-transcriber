@@ -10,12 +10,14 @@ export interface IActionItem {
 
 export interface ITranscript {
   id: string;
+  user: mongoose.Schema.Types.ObjectId;
   timestamp: string;
   source: string;
   transcript: string;
   summary: string;
   actionItems: IActionItem[];
   createdAt: string;
+  fullSummaryText: string;
 }
 
 const ActionItemSchema = new mongoose.Schema({
@@ -28,17 +30,18 @@ const ActionItemSchema = new mongoose.Schema({
 
 const TranscriptSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   timestamp: { type: String, required: true },
   source: { type: String, required: true },
   transcript: { type: String, required: true },
   summary: { type: String, required: true },
   actionItems: [ActionItemSchema],
-  createdAt: { type: String, required: true }
+  createdAt: { type: String, required: true },
+  fullSummaryText: { type: String, required: true },
 }, {
   timestamps: true
 });
 
-// Create index for better query performance
 TranscriptSchema.index({ createdAt: -1 });
 TranscriptSchema.index({ source: 1 });
 
